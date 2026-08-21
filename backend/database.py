@@ -17,14 +17,53 @@ DATABASE_PATH = DATA_DIR / "sentinels.db"
 # ============================================================
 
 def get_connection() -> sqlite3.Connection:
-    """Create and return a connection to the SQLite database."""
+    """
+    Create and return a connection to the SQLite database.
+
+    The database directory is created automatically.
+    The database schema is also ensured before the connection
+    is returned.
+    """
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    connection = sqlite3.connect(DATABASE_PATH)
+    connection = sqlite3.connect(
+        str(DATABASE_PATH),
+        check_same_thread=False,
+    )
+
     connection.row_factory = sqlite3.Row
 
+    # Make sure required tables exist.
+    _create_tables(connection)
+
     return connection
+
+
+# ============================================================
+# CREATE DATABASE TABLES
+# ============================================================
+
+def _create_tables(connection: sqlite3.Connection) -> None:
+    """
+    Create all required database tables if they do not exist.
+    """
+
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS claims (
+            id TEXT PRIMARY KEY,
+            claim TEXT NOT NULL,
+            verification_status TEXT NOT NULL,
+            confidence REAL NOT NULL,
+            source TEXT,
+            reasoning TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+
+    connection.commit()
 
 
 # ============================================================
@@ -32,26 +71,37 @@ def get_connection() -> sqlite3.Connection:
 # ============================================================
 
 def initialize_database() -> None:
-    """Create the claims table if it does not already exist."""
+    """
+    Initialize the SQLite database and create all required tables.
+    """
 
-    connection = get_connection()
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    connection = sqlite3.connect(
+        str(DATABASE_PATH),
+        check_same_thread=False,
+    )
 
     try:
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS claims (
-                id TEXT PRIMARY KEY,
-                claim TEXT NOT NULL,
-                verification_status TEXT NOT NULL,
-                confidence REAL NOT NULL,
-                source TEXT,
-                reasoning TEXT,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
+        connection.row_factory = sqlite3.Row
 
-        connection.commit()
+        _create_tables(connection)
+
+        # Verify that the claims table actually exists.
+        table = connection.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name = 'claims'
+            """
+        ).fetchone()
+
+        if table is None:
+            raise RuntimeError(
+                "Database initialization failed: "
+                "'claims' table was not created."
+            )
 
     finally:
         connection.close()
@@ -70,7 +120,9 @@ def insert_claim(
     reasoning: str | None,
     created_at: str,
 ) -> None:
-    """Insert a claim into the knowledge base."""
+    """
+    Insert a claim into the knowledge base.
+    """
 
     connection = get_connection()
 
@@ -110,7 +162,9 @@ def insert_claim(
 # ============================================================
 
 def get_claim(claim_id: str) -> dict[str, Any] | None:
-    """Retrieve a claim by its ID."""
+    """
+    Retrieve a claim by its ID.
+    """
 
     connection = get_connection()
 
@@ -145,7 +199,9 @@ def get_claim(claim_id: str) -> dict[str, Any] | None:
 # ============================================================
 
 def get_all_claims() -> list[dict[str, Any]]:
-    """Retrieve all claims from the knowledge base."""
+    """
+    Retrieve all claims from the knowledge base.
+    """
 
     connection = get_connection()
 
@@ -172,6 +228,42 @@ def get_all_claims() -> list[dict[str, Any]]:
 
 
 # ============================================================
+# DATABASE HEALTH CHECK
+# ============================================================
+
+def database_health_check() -> dict[str, Any]:
+    """
+    Verify that the database is accessible and the claims table exists.
+    """
+
+    connection = get_connection()
+
+    try:
+        table = connection.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name = 'claims'
+            """
+        ).fetchone()
+
+        claims_count = connection.execute(
+            "SELECT COUNT(*) AS count FROM claims"
+        ).fetchone()["count"]
+
+        return {
+            "database": "connected",
+            "database_path": str(DATABASE_PATH),
+            "claims_table": table is not None,
+            "claims_count": claims_count,
+        }
+
+    finally:
+        connection.close()
+
+
+# ============================================================
 # INITIALIZE DATABASE WHEN RUN DIRECTLY
 # ============================================================
 
@@ -180,3 +272,7 @@ if __name__ == "__main__":
 
     print("SQLite database initialized successfully.")
     print(f"Database location: {DATABASE_PATH}")
+
+    health = database_health_check()
+
+    print(f"Database health: {health}")

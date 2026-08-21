@@ -3,7 +3,10 @@ import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.database import initialize_database
+from backend.database import (
+    initialize_database,
+    database_health_check,
+)
 from backend.graph import investigation_graph
 from backend.models import InvestigationRequest, InvestigationResponse
 
@@ -63,6 +66,15 @@ def health():
 
 
 # ============================================================
+# DATABASE HEALTH CHECK
+# ============================================================
+
+@app.get("/database-health")
+def database_health():
+    return database_health_check()
+
+
+# ============================================================
 # INVESTIGATE CLAIM
 # ============================================================
 
@@ -72,7 +84,6 @@ def health():
 )
 def investigate(request: InvestigationRequest):
 
-    # Validate claim
     if not request.claim or not request.claim.strip():
         raise HTTPException(
             status_code=400,
@@ -105,7 +116,6 @@ def investigate(request: InvestigationRequest):
     }
 
     try:
-        # Run the LangGraph investigation workflow
         result = investigation_graph.invoke(initial_state)
 
     except Exception as exc:
@@ -114,7 +124,6 @@ def investigate(request: InvestigationRequest):
             detail=f"Investigation failed: {str(exc)}"
         ) from exc
 
-    # Return the investigation result
     return {
         "claim_id": result.get("claim_id"),
 
