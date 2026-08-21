@@ -2,18 +2,17 @@ import chromadb
 from pathlib import Path
 
 
-# Project root
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# ChromaDB storage location
 CHROMA_PATH = BASE_DIR / "data" / "chroma"
 
-# Create persistent ChromaDB client
+CHROMA_PATH.mkdir(parents=True, exist_ok=True)
+
+
 client = chromadb.PersistentClient(
     path=str(CHROMA_PATH)
 )
 
-# Create collection
+
 collection = client.get_or_create_collection(
     name="claims"
 )
@@ -25,50 +24,87 @@ def add_claim(
     metadata: dict | None = None
 ):
     """
-    Add a claim to ChromaDB.
+    Add or update a claim in ChromaDB.
     """
 
-    collection.add(
+    collection.upsert(
         ids=[claim_id],
         documents=[text],
         metadatas=[metadata or {}]
     )
 
 
-def get_collection_count():
+def get_collection_count() -> int:
     """
-    Return number of stored documents.
+    Return the number of stored documents.
     """
 
     return collection.count()
 
-if __name__ == "__main__":
+
+def seed_demo_claims():
+    """
+    Add a small set of factual claims for testing.
+    Existing IDs are updated instead of duplicated.
+    """
 
     test_claims = [
         {
-            "id": "test_claim_001",
+            "id": "fact_001",
             "text": "The Earth revolves around the Sun.",
             "metadata": {
-                "source": "test",
-                "type": "claim"
+                "source": "NASA",
+                "type": "scientific_fact"
             }
         },
         {
-            "id": "test_claim_002",
+            "id": "fact_002",
+            "text": "The Sun is a star at the center of the Solar System.",
+            "metadata": {
+                "source": "NASA",
+                "type": "scientific_fact"
+            }
+        },
+        {
+            "id": "fact_003",
+            "text": "The Moon orbits the Earth.",
+            "metadata": {
+                "source": "NASA",
+                "type": "scientific_fact"
+            }
+        },
+        {
+            "id": "fact_004",
             "text": "Water freezes at 0 degrees Celsius under standard atmospheric pressure.",
             "metadata": {
-                "source": "test",
-                "type": "claim"
+                "source": "Scientific Reference",
+                "type": "scientific_fact"
             }
         },
         {
-            "id": "test_claim_003",
+            "id": "fact_005",
             "text": "The Pacific Ocean is the largest ocean on Earth.",
             "metadata": {
-                "source": "test",
-                "type": "claim"
+                "source": "NOAA",
+                "type": "geographical_fact"
             }
-        }
+        },
+        {
+            "id": "fact_006",
+            "text": "The Earth is the third planet from the Sun.",
+            "metadata": {
+                "source": "NASA",
+                "type": "scientific_fact"
+            }
+        },
+        {
+            "id": "fact_007",
+            "text": "The Sun is composed primarily of hydrogen and helium.",
+            "metadata": {
+                "source": "NASA",
+                "type": "scientific_fact"
+            }
+        },
     ]
 
     for claim in test_claims:
@@ -78,5 +114,12 @@ if __name__ == "__main__":
             metadata=claim["metadata"]
         )
 
+    return get_collection_count()
+
+
+if __name__ == "__main__":
+
+    count = seed_demo_claims()
+
     print("ChromaDB initialized successfully.")
-    print("Documents stored:", get_collection_count())
+    print("Documents stored:", count)

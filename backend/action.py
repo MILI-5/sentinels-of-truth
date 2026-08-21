@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from backend.database import insert_claim
+from backend.chroma_db import add_claim
 
 
 def execute_insert(
@@ -12,13 +13,20 @@ def execute_insert(
     reasoning: str,
 ) -> dict[str, Any]:
     """
-    Insert a verified claim into the SQLite knowledge base.
+    Insert a verified claim into both the SQLite
+    knowledge base and ChromaDB.
     """
 
     source = None
 
     if evidence:
-        source = evidence[0].get("metadata", {}).get("source")
+
+        metadata = evidence[0].get(
+            "metadata",
+            {}
+        )
+
+        source = metadata.get("source")
 
     created_at = datetime.now().isoformat()
 
@@ -32,11 +40,23 @@ def execute_insert(
         created_at=created_at,
     )
 
+    add_claim(
+        claim_id=claim_id,
+        text=claim,
+        metadata={
+            "source": source or "Sentinels of Truth",
+            "type": "verified_claim",
+            "verification_status": "verified",
+            "confidence": str(confidence),
+        }
+    )
+
     return {
         "action": "INSERT",
         "status": "SUCCESS",
         "claim_id": claim_id,
     }
+
 
 def execute_flag(
     claim_id: str,
@@ -45,8 +65,6 @@ def execute_flag(
 ) -> dict[str, Any]:
     """
     Flag a claim for human review.
-
-    FLAG does not insert or modify the knowledge base.
     """
 
     return {
@@ -57,13 +75,15 @@ def execute_flag(
         "reason": reason,
     }
 
+
 def execute_discard(
     claim_id: str,
     claim: str,
     reason: str,
 ) -> dict[str, Any]:
     """
-    Discard a claim without inserting it into the knowledge base.
+    Discard a claim without inserting it
+    into the knowledge base.
     """
 
     return {

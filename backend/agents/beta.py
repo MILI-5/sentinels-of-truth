@@ -3,6 +3,16 @@ from typing import Any
 from backend.database import get_all_claims
 
 
+def normalize_claim(claim: str) -> str:
+    """
+    Normalize a claim for comparison.
+    """
+
+    return " ".join(
+        claim.strip().lower().split()
+    )
+
+
 def investigate_knowledge_base(
     claim: str,
 ) -> dict[str, Any]:
@@ -13,12 +23,22 @@ def investigate_knowledge_base(
 
     all_claims = get_all_claims()
 
+    normalized_claim = normalize_claim(claim)
+
     database_matches = []
 
     for stored_claim in all_claims:
 
-        if stored_claim["claim"].strip().lower() == claim.strip().lower():
-            database_matches.append(stored_claim)
+        stored_text = stored_claim.get(
+            "claim",
+            ""
+        )
+
+        if normalize_claim(stored_text) == normalized_claim:
+
+            database_matches.append(
+                stored_claim
+            )
 
     if not database_matches:
 
@@ -31,7 +51,13 @@ def investigate_knowledge_base(
 
     else:
 
-        verification_status = database_matches[0]["verification_status"]
+        existing_claim = database_matches[0]
+
+        verification_status = (
+            existing_claim.get(
+                "verification_status"
+            )
+        )
 
         if verification_status == "verified":
 
@@ -40,7 +66,7 @@ def investigate_knowledge_base(
             contradiction_info = {
                 "has_contradiction": False,
                 "reason": "Existing claim is verified.",
-                "database_match": database_matches[0]
+                "database_match": existing_claim
             }
 
         elif verification_status == "rejected":
@@ -49,8 +75,10 @@ def investigate_knowledge_base(
 
             contradiction_info = {
                 "has_contradiction": True,
-                "reason": "Existing claim is marked as rejected.",
-                "database_match": database_matches[0]
+                "reason": (
+                    "Existing claim is marked as rejected."
+                ),
+                "database_match": existing_claim
             }
 
         else:
@@ -59,17 +87,21 @@ def investigate_knowledge_base(
 
             contradiction_info = {
                 "has_contradiction": False,
-                "reason": "Existing claim has an unknown verification status.",
-                "database_match": database_matches[0]
+                "reason": (
+                    "Existing claim has an unknown "
+                    "verification status."
+                ),
+                "database_match": existing_claim
             }
 
     return {
         "claim": claim,
         "database_matches": database_matches,
-        "match_found": len(database_matches) > 0,
+        "match_found": bool(database_matches),
         "comparison_status": comparison_status,
         "contradiction_info": contradiction_info,
     }
+
 
 if __name__ == "__main__":
 
@@ -78,12 +110,25 @@ if __name__ == "__main__":
     result = investigate_knowledge_base(claim)
 
     print("\nAgent Beta Investigation:")
-    print("Claim:", result["claim"])
-    print("Match Found:", result["match_found"])
-    print("Comparison Status:", result["comparison_status"])
-    print("Contradiction Info:", result["contradiction_info"])
 
-    print("Database Matches:")
+    print("Claim:", result["claim"])
+
+    print(
+        "Match Found:",
+        result["match_found"]
+    )
+
+    print(
+        "Comparison Status:",
+        result["comparison_status"]
+    )
+
+    print(
+        "Contradiction Info:",
+        result["contradiction_info"]
+    )
+
+    print("\nDatabase Matches:")
 
     for match in result["database_matches"]:
         print(match)

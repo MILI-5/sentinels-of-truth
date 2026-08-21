@@ -14,35 +14,85 @@ from backend.action import (
 )
 
 
-# ============================================================
-# ALPHA NODE
-# ============================================================
-
-def alpha_node(state: InvestigationState):
+def calculate_confidence(
+    evidence: list[dict],
+    distance_threshold: float
+) -> float:
     """
-    LangGraph node that runs Agent Alpha.
+    Convert the best ChromaDB distance into
+    a simple confidence score between 0 and 1.
+    """
+
+    if not evidence:
+        return 0.0
+
+    best_distance = evidence[0].get(
+        "distance"
+    )
+
+    if best_distance is None:
+        return 0.0
+
+    if distance_threshold <= 0:
+        return 0.0
+
+    confidence = (
+        1.0
+        - (best_distance / distance_threshold)
+    )
+
+    return round(
+        max(0.0, min(1.0, confidence)),
+        2
+    )
+
+
+def alpha_node(
+    state: InvestigationState
+):
+    """
+    Run Agent Alpha.
     """
 
     print("\n[Alpha Node] Running...")
 
     claim = state["original_claim"]
 
-    alpha_result = investigate_claim(claim)
+    alpha_result = investigate_claim(
+        claim
+    )
+
+    distance_threshold = 1.0
+
+    confidence = calculate_confidence(
+        alpha_result["evidence"],
+        distance_threshold
+    )
 
     return {
-        "evidence": alpha_result["evidence"],
+        "search_results": (
+            alpha_result["search_results"]
+        ),
+
+        "search_queries_used": (
+            alpha_result["search_queries"]
+        ),
+
+        "evidence": (
+            alpha_result["evidence"]
+        ),
 
         "verification_report": {
             "status": alpha_result["status"],
-            "evidence_count": alpha_result["evidence_count"],
-            "best_evidence": alpha_result["best_evidence"],
+            "evidence_count": (
+                alpha_result["evidence_count"]
+            ),
+            "best_evidence": (
+                alpha_result["best_evidence"]
+            ),
         },
 
-        "confidence": (
-            1.0
-            if alpha_result["has_evidence"]
-            else 0.0
-        ),
+        "confidence": confidence,
 
         "investigation_history": [
             {
@@ -53,51 +103,51 @@ def alpha_node(state: InvestigationState):
     }
 
 
-# ============================================================
-# BETA NODE
-# ============================================================
-
-def beta_node(state: InvestigationState):
+def beta_node(
+    state: InvestigationState
+):
     """
-    LangGraph node that runs Agent Beta.
+    Run Agent Beta.
     """
 
     print("\n[Beta Node] Running...")
 
     claim = state["original_claim"]
 
-    beta_result = investigate_knowledge_base(claim)
+    beta_result = investigate_knowledge_base(
+        claim
+    )
 
     return {
-        "database_matches": beta_result[
-            "database_matches"
-        ],
+        "database_matches": (
+            beta_result["database_matches"]
+        ),
 
-        "contradiction_info": beta_result[
-            "contradiction_info"
-        ],
+        "contradiction_info": (
+            beta_result["contradiction_info"]
+        ),
 
         "investigation_history": (
             state["investigation_history"]
             + [
                 {
                     "agent": "beta",
-                    "status": beta_result[
-                        "comparison_status"
-                    ],
+                    "status": (
+                        beta_result[
+                            "comparison_status"
+                        ]
+                    ),
                 }
             ]
         ),
     }
 
 
-# ============================================================
-# DECISION NODE
-# ============================================================
-
-def decision_node(state: InvestigationState):
+def decision_node(
+    state: InvestigationState
+):
     """
-    Decide and execute the final action for the claim.
+    Generate and execute the final decision.
     """
 
     print("\n[Decision Node] Running...")
@@ -106,7 +156,7 @@ def decision_node(state: InvestigationState):
         "verification_report"
     ].get(
         "status",
-        "NO_EVIDENCE",
+        "NO_EVIDENCE"
     )
 
     beta_status = state[
@@ -115,22 +165,21 @@ def decision_node(state: InvestigationState):
 
     decision_result = decide_action(
         alpha_status,
-        beta_status,
+        beta_status
     )
 
-    decision = decision_result["decision"]
+    decision = decision_result[
+        "decision"
+    ]
 
-    reason = decision_result["reason"]
+    reason = decision_result[
+        "reason"
+    ]
 
     print(
         "[Decision Node] Decision:",
-        decision,
+        decision
     )
-
-
-    # ========================================================
-    # EXECUTE INSERT
-    # ========================================================
 
     if decision == "INSERT":
 
@@ -142,11 +191,6 @@ def decision_node(state: InvestigationState):
             reasoning=reason,
         )
 
-
-    # ========================================================
-    # EXECUTE FLAG
-    # ========================================================
-
     elif decision == "FLAG":
 
         action_result = execute_flag(
@@ -154,11 +198,6 @@ def decision_node(state: InvestigationState):
             claim=state["original_claim"],
             reason=reason,
         )
-
-
-    # ========================================================
-    # EXECUTE DISCARD
-    # ========================================================
 
     else:
 
@@ -168,21 +207,15 @@ def decision_node(state: InvestigationState):
             reason=reason,
         )
 
-
     print(
         "[Decision Node] Action:",
-        action_result["action"],
+        action_result["action"]
     )
 
     print(
         "[Decision Node] Action Status:",
-        action_result["status"],
+        action_result["status"]
     )
-
-
-    # ========================================================
-    # RETURN UPDATED STATE
-    # ========================================================
 
     return {
         "final_decision": decision,
@@ -201,23 +234,19 @@ def decision_node(state: InvestigationState):
     }
 
 
-# ============================================================
-# ROUTER
-# ============================================================
-
 def route_after_alpha(
     state: InvestigationState
 ):
     """
     Route Alpha to Beta.
-
-    Both evidence outcomes currently continue
-    to Beta for further investigation.
     """
 
     status = state[
         "verification_report"
-    ].get("status")
+    ].get(
+        "status",
+        "NO_EVIDENCE"
+    )
 
     print(
         f"\n[Router] Alpha status: {status}"
@@ -229,10 +258,6 @@ def route_after_alpha(
 
     return "beta"
 
-
-# ============================================================
-# CREATE LANGGRAPH
-# ============================================================
 
 builder = StateGraph(
     InvestigationState
@@ -255,15 +280,10 @@ builder.add_node(
 )
 
 
-# ============================================================
-# GRAPH FLOW
-# ============================================================
-
 builder.add_edge(
     START,
     "alpha"
 )
-
 
 builder.add_conditional_edges(
     "alpha",
@@ -273,12 +293,10 @@ builder.add_conditional_edges(
     }
 )
 
-
 builder.add_edge(
     "beta",
     "decision"
 )
-
 
 builder.add_edge(
     "decision",
@@ -286,16 +304,8 @@ builder.add_edge(
 )
 
 
-# ============================================================
-# COMPILE
-# ============================================================
-
 investigation_graph = builder.compile()
 
-
-# ============================================================
-# TEST GRAPH
-# ============================================================
 
 if __name__ == "__main__":
 
@@ -305,10 +315,11 @@ if __name__ == "__main__":
 
     initial_state = {
 
-        "claim_id": "test_claim_001",
+        "claim_id":
+            "test_claim_001",
 
         "original_claim":
-            "What revolves around the Sun?",
+            "The sun is a star",
 
         "parsed_claim": {},
 
@@ -339,16 +350,13 @@ if __name__ == "__main__":
         "errors": [],
     }
 
-
     result = investigation_graph.invoke(
         initial_state
     )
 
-
     print(
         "\nGraph execution completed."
     )
-
 
     print(
         "\nFinal State:"
