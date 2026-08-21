@@ -8,6 +8,8 @@ from backend.database import (
     database_health_check,
 )
 
+from backend.chroma_db import initialize_knowledge_base
+
 from backend.graph import investigation_graph
 
 from backend.models import (
@@ -23,7 +25,9 @@ app = FastAPI(
 )
 
 
+# Initialize databases and knowledge base
 initialize_database()
+initialize_knowledge_base()
 
 
 app.add_middleware(

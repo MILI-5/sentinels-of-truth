@@ -1,21 +1,12 @@
-from typing import Any
-
 from backend.chroma_db import collection
 
 
 def search_claims(
     query: str,
     n_results: int = 5
-) -> list[dict[str, Any]]:
-    """
-    Search ChromaDB and return structured results.
-    """
-
-    if not query or not query.strip():
-        return []
-
+):
     results = collection.query(
-        query_texts=[query.strip()],
+        query_texts=[query],
         n_results=n_results
     )
 
@@ -27,27 +18,20 @@ def search_claims(
     formatted_results = []
 
     for i in range(len(ids)):
-
-        distance = (
-            distances[i]
-            if i < len(distances)
-            else None
-        )
-
         formatted_results.append(
             {
                 "id": ids[i],
-                "text": (
-                    documents[i]
-                    if i < len(documents)
-                    else ""
-                ),
+                "text": documents[i] if i < len(documents) else "",
                 "metadata": (
                     metadatas[i]
                     if i < len(metadatas)
                     else {}
                 ),
-                "distance": distance,
+                "distance": (
+                    distances[i]
+                    if i < len(distances)
+                    else None
+                )
             }
         )
 
@@ -56,7 +40,7 @@ def search_claims(
 
 if __name__ == "__main__":
 
-    query = "The sun is a star"
+    query = "The Earth revolves around the Sun."
 
     results = search_claims(query)
 

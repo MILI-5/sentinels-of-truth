@@ -5,17 +5,66 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 CHROMA_PATH = BASE_DIR / "data" / "chroma"
 
-CHROMA_PATH.mkdir(parents=True, exist_ok=True)
-
-
 client = chromadb.PersistentClient(
     path=str(CHROMA_PATH)
 )
 
-
 collection = client.get_or_create_collection(
     name="claims"
 )
+
+
+DEFAULT_CLAIMS = [
+    {
+        "id": "knowledge_earth_sun",
+        "text": "The Earth revolves around the Sun.",
+        "metadata": {
+            "source": "Sentinels Knowledge Base",
+            "type": "verified_fact"
+        }
+    },
+    {
+        "id": "knowledge_sun_star",
+        "text": "The Sun is a star.",
+        "metadata": {
+            "source": "Sentinels Knowledge Base",
+            "type": "verified_fact"
+        }
+    },
+    {
+        "id": "knowledge_moon_earth",
+        "text": "The Moon revolves around the Earth.",
+        "metadata": {
+            "source": "Sentinels Knowledge Base",
+            "type": "verified_fact"
+        }
+    },
+    {
+        "id": "knowledge_water_freezing",
+        "text": "Water freezes at 0 degrees Celsius under standard atmospheric pressure.",
+        "metadata": {
+            "source": "Sentinels Knowledge Base",
+            "type": "verified_fact"
+        }
+    },
+    {
+        "id": "knowledge_pacific_ocean",
+        "text": "The Pacific Ocean is the largest ocean on Earth.",
+        "metadata": {
+            "source": "Sentinels Knowledge Base",
+            "type": "verified_fact"
+        }
+    }
+]
+
+
+def initialize_knowledge_base():
+    for claim in DEFAULT_CLAIMS:
+        collection.upsert(
+            ids=[claim["id"]],
+            documents=[claim["text"]],
+            metadatas=[claim["metadata"]]
+        )
 
 
 def add_claim(
@@ -23,10 +72,6 @@ def add_claim(
     text: str,
     metadata: dict | None = None
 ):
-    """
-    Add or update a claim in ChromaDB.
-    """
-
     collection.upsert(
         ids=[claim_id],
         documents=[text],
@@ -34,92 +79,15 @@ def add_claim(
     )
 
 
-def get_collection_count() -> int:
-    """
-    Return the number of stored documents.
-    """
-
+def get_collection_count():
     return collection.count()
 
 
-def seed_demo_claims():
-    """
-    Add a small set of factual claims for testing.
-    Existing IDs are updated instead of duplicated.
-    """
-
-    test_claims = [
-        {
-            "id": "fact_001",
-            "text": "The Earth revolves around the Sun.",
-            "metadata": {
-                "source": "NASA",
-                "type": "scientific_fact"
-            }
-        },
-        {
-            "id": "fact_002",
-            "text": "The Sun is a star at the center of the Solar System.",
-            "metadata": {
-                "source": "NASA",
-                "type": "scientific_fact"
-            }
-        },
-        {
-            "id": "fact_003",
-            "text": "The Moon orbits the Earth.",
-            "metadata": {
-                "source": "NASA",
-                "type": "scientific_fact"
-            }
-        },
-        {
-            "id": "fact_004",
-            "text": "Water freezes at 0 degrees Celsius under standard atmospheric pressure.",
-            "metadata": {
-                "source": "Scientific Reference",
-                "type": "scientific_fact"
-            }
-        },
-        {
-            "id": "fact_005",
-            "text": "The Pacific Ocean is the largest ocean on Earth.",
-            "metadata": {
-                "source": "NOAA",
-                "type": "geographical_fact"
-            }
-        },
-        {
-            "id": "fact_006",
-            "text": "The Earth is the third planet from the Sun.",
-            "metadata": {
-                "source": "NASA",
-                "type": "scientific_fact"
-            }
-        },
-        {
-            "id": "fact_007",
-            "text": "The Sun is composed primarily of hydrogen and helium.",
-            "metadata": {
-                "source": "NASA",
-                "type": "scientific_fact"
-            }
-        },
-    ]
-
-    for claim in test_claims:
-        add_claim(
-            claim_id=claim["id"],
-            text=claim["text"],
-            metadata=claim["metadata"]
-        )
-
-    return get_collection_count()
+initialize_knowledge_base()
 
 
 if __name__ == "__main__":
-
-    count = seed_demo_claims()
+    initialize_knowledge_base()
 
     print("ChromaDB initialized successfully.")
-    print("Documents stored:", count)
+    print("Documents stored:", get_collection_count())
