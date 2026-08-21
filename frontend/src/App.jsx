@@ -50,22 +50,18 @@ function App() {
     }
   };
 
-  // Convert confidence from 0-1 to percentage
   const confidencePercent = result
     ? Math.round(Number(result.confidence || 0) * 100)
     : 0;
 
-  // Safely read investigation history
   const history = Array.isArray(result?.investigation_history)
     ? result.investigation_history
     : [];
 
-  // Decision CSS class
   const decisionClass = result?.decision
     ? result.decision.toLowerCase()
     : "unknown";
 
-  // Agent status CSS class
   const getAgentStatusClass = (status) => {
     const normalizedStatus = String(status || "")
       .toLowerCase()
@@ -102,8 +98,6 @@ function App() {
   return (
     <div className="app">
 
-      {/* ================= HEADER ================= */}
-
       <header className="header">
         <div className="logo">S</div>
 
@@ -113,12 +107,7 @@ function App() {
         </div>
       </header>
 
-
-      {/* ================= MAIN ================= */}
-
       <main className="container">
-
-        {/* ================= CLAIM INPUT ================= */}
 
         <section className="input-card">
 
@@ -153,9 +142,6 @@ function App() {
 
         </section>
 
-
-        {/* ================= LOADING ================= */}
-
         {loading && (
           <div className="loading-card">
 
@@ -170,13 +156,8 @@ function App() {
           </div>
         )}
 
-
-        {/* ================= RESULTS ================= */}
-
         {result && !loading && (
           <section className="result-card">
-
-            {/* ================= RESULT HEADER ================= */}
 
             <div className="result-header">
 
@@ -249,9 +230,6 @@ function App() {
 
             </div>
 
-
-            {/* ================= REASONING ================= */}
-
             <div className="reasoning">
 
               <span className="label">
@@ -264,9 +242,6 @@ function App() {
               </p>
 
             </div>
-
-
-            {/* ================= AGENT PIPELINE ================= */}
 
             <div className="pipeline-section">
 
@@ -374,9 +349,6 @@ function App() {
 
             </div>
 
-
-            {/* ================= INVESTIGATION DETAILS ================= */}
-
             <div className="details-section">
 
               <h3>
@@ -400,9 +372,6 @@ function App() {
 
                 </div>
 
-
-                {/* Original Claim */}
-
                 <div>
 
                   <span className="label">
@@ -416,9 +385,6 @@ function App() {
                   </p>
 
                 </div>
-
-
-                {/* Search Queries */}
 
                 <div>
 
@@ -454,9 +420,6 @@ function App() {
                   )}
 
                 </div>
-
-
-                {/* Investigation History */}
 
                 <div>
 
@@ -499,9 +462,6 @@ function App() {
               </div>
 
             </div>
-
-
-            {/* ================= EVIDENCE ================= */}
 
             <div className="evidence-section">
 
@@ -553,9 +513,6 @@ function App() {
 
             </div>
 
-
-            {/* ================= SEARCH RESULTS ================= */}
-
             {Array.isArray(result.search_results) &&
             result.search_results.length > 0 && (
 
@@ -599,9 +556,6 @@ function App() {
 
             )}
 
-
-            {/* ================= VERIFICATION REPORT ================= */}
-
             {result.verification_report &&
             typeof result.verification_report === "object" &&
             Object.keys(result.verification_report).length > 0 && (
@@ -632,9 +586,6 @@ function App() {
         )}
 
       </main>
-
-
-      {/* ================= FOOTER ================= */}
 
       <footer>
         Sentinels of Truth • Multi-Agent Verification System

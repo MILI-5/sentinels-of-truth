@@ -2,19 +2,10 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-
-# ============================================================
-# DATABASE CONFIGURATION
-# ============================================================
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 DATABASE_PATH = DATA_DIR / "sentinels.db"
 
-
-# ============================================================
-# DATABASE CONNECTION
-# ============================================================
 
 def get_connection() -> sqlite3.Connection:
     """
@@ -40,10 +31,6 @@ def get_connection() -> sqlite3.Connection:
     return connection
 
 
-# ============================================================
-# CREATE DATABASE TABLES
-# ============================================================
-
 def _create_tables(connection: sqlite3.Connection) -> None:
     """
     Create all required database tables if they do not exist.
@@ -64,11 +51,6 @@ def _create_tables(connection: sqlite3.Connection) -> None:
     )
 
     connection.commit()
-
-
-# ============================================================
-# DATABASE INITIALIZATION
-# ============================================================
 
 def initialize_database() -> None:
     """
@@ -106,10 +88,6 @@ def initialize_database() -> None:
     finally:
         connection.close()
 
-
-# ============================================================
-# INSERT CLAIM
-# ============================================================
 
 def insert_claim(
     claim_id: str,
@@ -157,10 +135,6 @@ def insert_claim(
         connection.close()
 
 
-# ============================================================
-# GET CLAIM BY ID
-# ============================================================
-
 def get_claim(claim_id: str) -> dict[str, Any] | None:
     """
     Retrieve a claim by its ID.
@@ -193,11 +167,6 @@ def get_claim(claim_id: str) -> dict[str, Any] | None:
     finally:
         connection.close()
 
-
-# ============================================================
-# GET ALL CLAIMS
-# ============================================================
-
 def get_all_claims() -> list[dict[str, Any]]:
     """
     Retrieve all claims from the knowledge base.
@@ -225,11 +194,6 @@ def get_all_claims() -> list[dict[str, Any]]:
 
     finally:
         connection.close()
-
-
-# ============================================================
-# DATABASE HEALTH CHECK
-# ============================================================
 
 def database_health_check() -> dict[str, Any]:
     """
@@ -261,11 +225,6 @@ def database_health_check() -> dict[str, Any]:
 
     finally:
         connection.close()
-
-
-# ============================================================
-# INITIALIZE DATABASE WHEN RUN DIRECTLY
-# ============================================================
 
 if __name__ == "__main__":
     initialize_database()
