@@ -1,26 +1,38 @@
 from backend.search import search_claims
 
 
+DEFAULT_DISTANCE_THRESHOLD = 1.0
+
+
 def investigate_claim(
     claim: str,
     n_results: int = 5,
-    distance_threshold: float = 1.0
+    distance_threshold: float = DEFAULT_DISTANCE_THRESHOLD,
 ):
+    """Search the knowledge base for supporting evidence."""
+
     search_results = search_claims(
         query=claim,
-        n_results=n_results
+        n_results=n_results,
     )
 
-    evidence = [
-        result
-        for result in search_results
-        if (
-            result.get("distance") is not None
-            and result["distance"] <= distance_threshold
-        )
-    ]
+    evidence = []
 
-    best_evidence = evidence[0] if evidence else None
+    for result in search_results:
+
+        distance = result.get("distance")
+
+        if (
+            distance is not None
+            and distance <= distance_threshold
+        ):
+            evidence.append(result)
+
+    best_evidence = (
+        evidence[0]
+        if evidence
+        else None
+    )
 
     status = (
         "EVIDENCE_FOUND"
@@ -30,13 +42,22 @@ def investigate_claim(
 
     return {
         "claim": claim,
+
+        "search_queries": [
+            claim
+        ],
+
         "search_results": search_results,
-        "search_queries": [claim],
+
         "evidence": evidence,
+
         "evidence_count": len(evidence),
+
         "has_evidence": bool(evidence),
+
         "best_evidence": best_evidence,
-        "status": status
+
+        "status": status,
     }
 
 
@@ -47,15 +68,38 @@ if __name__ == "__main__":
     result = investigate_claim(claim)
 
     print("\nAgent Alpha Investigation:")
-    print("Claim:", result["claim"])
-    print("Status:", result["status"])
-    print("Evidence Count:", result["evidence_count"])
-    print("Has Evidence:", result["has_evidence"])
 
-    print("\nBest Evidence:")
-    print(result["best_evidence"])
+    print(
+        "Claim:",
+        result["claim"]
+    )
 
-    print("\nRelevant Evidence:")
+    print(
+        "Status:",
+        result["status"]
+    )
 
-    for item in result["evidence"]:
+    print(
+        "Evidence Count:",
+        result["evidence_count"]
+    )
+
+    print(
+        "Has Evidence:",
+        result["has_evidence"]
+    )
+
+    print(
+        "\nSearch Results:"
+    )
+
+    for item in result["search_results"]:
         print(item)
+
+    print(
+        "\nBest Evidence:"
+    )
+
+    print(
+        result["best_evidence"]
+    )
