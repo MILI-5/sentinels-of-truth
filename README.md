@@ -1,276 +1,873 @@
-# 🛡️ Sentinels of Truth
+# Sentinels of Truth
 
-### AI-Powered Multi-Agent Claim Verification System
+## Multi-Agent Verification & Knowledge-Base System
 
-Sentinels of Truth is an AI-powered claim verification system that investigates factual claims using a multi-agent workflow, evidence retrieval, structured reasoning, and a persistent knowledge base.
+Sentinels of Truth is a multi-agent fact-checking and knowledge-management system designed to verify unverified claims and maintain a persistent knowledge base.
 
-The user submits a claim, the backend processes it through the investigation graph, retrieves relevant evidence and knowledge-base matches, and produces a verification decision with confidence and reasoning.
+The system uses two distinct agents:
 
----
+* **Agent Alpha — Investigator:** researches and verifies incoming claims using external search/evidence.
+* **Agent Beta — Archivist:** checks the verification report against the existing knowledge base and decides whether the information should be inserted, discarded, or flagged for human review.
 
-## 🚀 Features
-
-- **Claim Verification** — Analyze natural-language factual claims.
-- **Multi-Agent Workflow** — Modular investigation pipeline built with LangGraph.
-- **Evidence Retrieval** — Collect relevant supporting or contradicting evidence.
-- **Knowledge Base** — Persistent ChromaDB-based storage for verified claims.
-- **Confidence Scoring** — Provides a confidence value for the final decision.
-- **Explainable Results** — Returns reasoning, evidence, search results, and knowledge-base matches.
-- **REST API** — FastAPI backend for communication with the frontend.
-- **Web Interface** — React + Vite frontend for submitting and viewing claims.
+The agents communicate through a manually defined state schema orchestrated using LangGraph.
 
 ---
 
-## 🏗️ Architecture
+## 1. Problem Statement
+
+News agencies receive a continuous stream of claims from different sources. Before accepting a claim into a long-term knowledge base, the claim must be investigated and checked against information that is already stored.
+
+The system therefore needs to:
+
+1. Accept an unverified claim from a user.
+2. Investigate the claim using external information.
+3. Generate a verification report.
+4. Compare the report with existing knowledge.
+5. Insert genuinely new and verified information.
+6. Discard redundant information.
+7. Flag contradictory information for human review.
+
+Sentinels of Truth implements this workflow using a multi-agent architecture.
+
+---
+
+## 2. System Architecture
+
+```text
+                         USER
+                           |
+                           v
+                  +------------------+
+                  |  React Frontend  |
+                  +------------------+
+                           |
+                           | HTTP Request
+                           v
+                  +------------------+
+                  |   FastAPI API    |
+                  +------------------+
+                           |
+                           v
+                  +------------------+
+                  |    LangGraph     |
+                  |  State Workflow  |
+                  +------------------+
+                           |
+                           v
+                +----------------------+
+                |    Agent Alpha       |
+                |    Investigator      |
+                +----------------------+
+                           |
+                           | Search / Evidence
+                           v
+                    +-------------+
+                    | Search Tool |
+                    +-------------+
+                           |
+                           | Verification Report
+                           v
+                +----------------------+
+                |     Agent Beta       |
+                |      Archivist       |
+                +----------------------+
+                           |
+                           v
+                 +--------------------+
+                 |   Knowledge Base   |
+                 +--------------------+
+                    /            \
+                   /              \
+                  v                v
+              SQLite           ChromaDB
+            Structured       Semantic Search
+              Storage
+```
+
+### Main Flow
+
+```text
+Claim
+  |
+  v
+Parse Claim
+  |
+  v
+Identify Missing Information
+  |
+  v
+Search External Evidence
+  |
+  v
+Generate Verification Report
+  |
+  v
+Agent Beta
+  |
+  +---- New & Verified ------> INSERT
+  |
+  +---- Redundant -----------> DISCARD
+  |
+  +---- Contradiction -------> FLAG
+  |
+  v
+Final Verification Result
+```
+
+---
+
+## 3. Multi-Agent Design
+
+The system contains two distinct agents with separate responsibilities and tool access.
+
+### Agent Alpha — Investigator
+
+Agent Alpha acts as the research and verification agent.
+
+#### Responsibilities
+
+* Parse the incoming claim.
+* Identify information required for verification.
+* Determine missing information.
+* Formulate search queries.
+* Search external sources.
+* Collect relevant evidence.
+* Analyze the collected evidence.
+* Produce a verification report.
+
+#### Important Constraint
+
+Agent Alpha does **not** directly write to the knowledge base.
+
+Its responsibility ends with producing the verification report and passing the resulting state to Agent Beta.
+
+---
+
+### Agent Beta — Archivist
+
+Agent Beta acts as the gatekeeper of the persistent knowledge base.
+
+#### Responsibilities
+
+* Receive Agent Alpha's verification report.
+* Query the existing knowledge base.
+* Check whether similar information already exists.
+* Detect contradictions.
+* Determine the appropriate database action.
+
+Agent Beta can produce one of three outcomes:
+
+```text
+INSERT
+DISCARD
+FLAG
+```
+
+#### INSERT
+
+Used when:
+
+* The information is verified.
+* The information is sufficiently new.
+* No conflicting knowledge is found.
+
+```text
+Verification Report
+        |
+        v
+Knowledge Base Check
+        |
+        v
+No existing contradiction
+        |
+        v
+      INSERT
+```
+
+#### DISCARD
+
+Used when the information is already represented in the knowledge base and does not add meaningful new information.
+
+```text
+Verification Report
+        |
+        v
+Knowledge Base Check
+        |
+        v
+Existing matching information
+        |
+        v
+     DISCARD
+```
+
+#### FLAG
+
+Used when the new information contradicts existing knowledge.
+
+```text
+Verification Report
+        |
+        v
+Knowledge Base Check
+        |
+        v
+Contradiction detected
+        |
+        v
+       FLAG
+        |
+        v
+Human Review
+```
+
+---
+
+## 4. State Schema
+
+The agents communicate through a shared state object managed by LangGraph.
+
+The state maintains the history of the investigation as it moves through the workflow.
+
+A representative state structure is:
+
+```python
+class VerificationState(TypedDict):
+    claim_id: str
+    original_claim: str
+    parsed_claim: dict
+    missing_information: list
+    search_queries_used: list
+    search_results: list
+    evidence: list
+    verification_report: dict
+    database_result: dict
+    final_status: str
+```
+
+### State Flow
+
+```text
+                         VerificationState
+                                |
+                                v
+                         Agent Alpha
+                                |
+              +-----------------+----------------+
+              |                 |                |
+              v                 v                v
+        Parsed Claim      Search Results     Evidence
+              |                 |                |
+              +-----------------+----------------+
+                                |
+                                v
+                    Verification Report
+                                |
+                                v
+                         Agent Beta
+                                |
+                                v
+                       Database Result
+                                |
+                                v
+                         Final Status
+```
+
+The state allows information produced by one stage of the workflow to be passed to subsequent stages without requiring the agents to directly share implementation details.
+
+---
+
+## 5. Knowledge Base
+
+The system uses persistent storage for maintaining fact-checking information.
+
+### SQLite
+
+SQLite is used for structured persistent information such as:
+
+* Claim identifiers
+* Claims
+* Verification status
+* Database decisions
+* Timestamps
+* Other structured metadata
+
+SQLite provides persistent relational storage for the system.
+
+### ChromaDB
+
+ChromaDB is used as the vector knowledge base.
+
+It supports semantic similarity searches so that the Archivist can determine whether a newly investigated claim is similar to information that has already been stored.
+
+This helps the system handle claims that are phrased differently but refer to the same underlying information.
+
+---
+
+## 6. Verification Workflow
+
+The complete workflow is:
+
+### Step 1 — Claim Input
+
+The user enters an unverified claim through the web interface.
 
 ```text
 User
- │
- ▼
-React Frontend
- │
- ▼
-FastAPI Backend
- │
- ▼
-Investigation Graph
- │
- ├── Claim Analysis
- ├── Information Detection
- ├── Evidence / Search
- ├── Knowledge Base Retrieval
- └── Verification & Reasoning
- │
- ▼
-Final Decision
- │
- ├── Confidence
- ├── Reasoning
- ├── Evidence
- └── Investigation Details
- ---
+ |
+ v
+"Claim to verify"
+```
 
- ## 📁 Project Structure
+### Step 2 — Claim Parsing
+
+Agent Alpha analyzes the claim and extracts the information necessary for verification.
+
+### Step 3 — Missing Information
+
+Alpha determines whether additional information is required to properly investigate the claim.
+
+### Step 4 — Search
+
+Alpha formulates search queries and obtains external evidence using the available search tool.
+
+### Step 5 — Evidence Analysis
+
+The gathered information is used to produce a verification report.
+
+The report contains the information required by the Archivist to make a knowledge-base decision.
+
+### Step 6 — Knowledge-Base Check
+
+Agent Beta receives the state containing the verification report.
+
+Beta checks the existing knowledge base for related information.
+
+### Step 7 — Database Decision
+
+Beta selects one of the following:
+
+```text
+INSERT
+DISCARD
+FLAG
+```
+
+### Step 8 — Final Response
+
+The result is returned through the FastAPI backend to the frontend and displayed to the user.
+
+---
+
+## 7. Database Decision Logic
+
+```text
+                    Verification Report
+                            |
+                            v
+                    Agent Beta checks
+                    existing knowledge
+                            |
+             +--------------+--------------+
+             |              |              |
+             v              v              v
+        New & Verified   Redundant    Contradiction
+             |              |              |
+             v              v              v
+          INSERT         DISCARD          FLAG
+             |              |              |
+             +--------------+--------------+
+                            |
+                            v
+                     Final Result
+```
+
+This prevents Agent Alpha from directly modifying long-term knowledge.
+
+Only the Archivist is responsible for deciding how verified information should affect the knowledge base.
+
+---
+
+## 8. Technology Stack
+
+### Frontend
+
+* React
+* Vite
+* JavaScript / TypeScript
+* CSS
+
+### Backend
+
+* Python
+* FastAPI
+* LangGraph
+
+### Agents / AI
+
+* Multi-agent workflow
+* Agent Alpha — Investigator
+* Agent Beta — Archivist
+* Search-based evidence gathering
+
+### Databases
+
+* SQLite
+* ChromaDB
+
+### Development Tools
+
+* Git
+* GitHub
+* npm
+* Python virtual environment
+
+---
+
+## 9. Project Structure
+
+```text
 sentinels-of-truth/
 │
 ├── backend/
-│   ├── agents/
-│   │   ├── alpha.py
-│   │   └── ...
 │   ├── api.py
 │   ├── database.py
 │   ├── chroma_db.py
 │   ├── graph.py
-│   ├── models.py
+│   │
+│   ├── agents/
+│   │   ├── alpha.py
+│   │   └── beta.py
+│   │
 │   └── ...
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx
-│   │   ├── App.css
-│   │   └── ...
+│   ├── public/
 │   ├── package.json
 │   └── ...
 │
 ├── data/
-│   └── chroma/
+│   └── ...
 │
 ├── requirements.txt
-└── README.md
-
----
- ##🧠 Technology Stack
-
-Frontend
-React
-Vite
-JavaScript
-CSS
-
-Backend
-Python
-FastAPI
-Uvicorn
-
-AI / Agent Layer
-LangGraph
-LLM-based reasoning
-Multi-agent workflow
-
-Storage
-ChromaDB
-SQLite
-
-Deployment
-Vercel
-Render
+├── README.md
+└── .gitignore
+```
 
 ---
 
-##🔌 API
-Health Check
-GET /
+## 10. Local Setup
 
-Returns the API status.
+### Prerequisites
 
-Health
-GET /health
+Install:
 
-Database Health
-GET /database-health
-
-Investigate Claim
-POST /investigate
-
-Request:
-
-{
-  "claim": "The Earth revolves around the Sun."
-}
-
-The response contains the verification decision, confidence, reasoning, evidence, search results, knowledge-base matches, and investigation information.
+* Python 3.x
+* Node.js
+* npm
+* Git
 
 ---
 
-##🗄️ Knowledge Base
+### Clone the Repository
 
-The project uses ChromaDB as a persistent knowledge base.
-
-The initial knowledge base contains verified claims such as:
-
-The Earth revolves around the Sun.
-Water freezes at 0°C under standard atmospheric pressure.
-The Pacific Ocean is the largest ocean on Earth.
-
-Additional claims can be added programmatically through the backend.
-
----
-
-## ⚙️ Local Setup
-
-1. Clone the repository
+```bash
 git clone https://github.com/MILI-5/sentinels-of-truth.git
 cd sentinels-of-truth
+```
 
-2. Backend
+---
 
-Create and activate a virtual environment:
+## 11. Backend Setup
 
-Windows
+Create and activate a virtual environment.
 
+### Windows
+
+```bash
 python -m venv venv
-.\venv\Scripts\Activate.ps1
+venv\Scripts\activate
+```
 
-Install dependencies:
+### Install Dependencies
 
+```bash
 pip install -r requirements.txt
+```
 
-Start the backend:
+### Environment Variables
 
+If the application requires API keys for external services, create a `.env` file in the appropriate location.
+
+Do not commit API keys or other secrets to GitHub.
+
+Example:
+
+```text
+SEARCH_API_KEY=your_api_key
+LLM_API_KEY=your_api_key
+```
+
+Use the environment variable names expected by the implementation.
+
+---
+
+## 12. Initialize the Backend
+
+The application initializes the required persistent storage during startup.
+
+The startup sequence is:
+
+```text
+FastAPI starts
+     |
+     v
+SQLite initialized
+     |
+     v
+Knowledge Base initialized
+     |
+     v
+API becomes available
+```
+
+The database initialization is handled by the backend rather than requiring the user to manually create database tables.
+
+---
+
+## 13. Run the Backend
+
+From the project root:
+
+```bash
 uvicorn backend.api:app --reload
+```
 
-Backend:
+The FastAPI backend will then be available locally.
 
-http://127.0.0.1:8000
+---
 
-FastAPI documentation:
-
-http://127.0.0.1:8000/docs
-3. Frontend
+## 14. Frontend Setup
 
 Open another terminal:
 
+```bash
 cd frontend
 npm install
+```
+
+Run the development server:
+
+```bash
 npm run dev
+```
 
-Frontend:
-
-http://localhost:5173
-
----
-
-## 🌐 Deployment
-
-The application can be deployed as separate frontend and backend services.
-
-Frontend: Vercel
-Backend: Render
-
-For production deployment, configure the frontend to use the deployed FastAPI backend URL and update the backend CORS configuration accordingly.
-
-Example Render start command:
-
-uvicorn backend.api:app --host 0.0.0.0 --port $PORT
-
-🔍 Example
-
-Input:
-
-The Earth revolves around the Sun.
-
-The system processes the claim through the investigation workflow and can return a result similar to:
-
-Decision: VERIFIED
-Confidence: 0.95
-
-along with supporting reasoning and evidence.
-
-🎯 Project Goal
-
-The goal of Sentinels of Truth is to demonstrate how multi-agent AI, evidence retrieval, structured reasoning, and persistent knowledge bases can be combined to build an explainable claim verification system.
+Open the local URL displayed by Vite.
 
 ---
 
+## 15. Using the Application
 
-##📜 License
+### Step 1
 
-This project was developed as an academic/research project.
+Open the Sentinels of Truth web application.
+
+### Step 2
+
+Enter a claim into the input field.
+
+Example:
+
+```text
+What revolves around the Sun?
+```
+
+### Step 3
+
+Click:
+
+```text
+Verify Claim
+```
+
+### Step 4
+
+The request is sent to the FastAPI backend.
+
+### Step 5
+
+Agent Alpha investigates the claim.
+
+### Step 6
+
+Agent Beta checks the existing knowledge base.
+
+### Step 7
+
+The application returns the verification result and database decision.
 
 ---
 
-##🔮 Future Improvements
+## 16. Example Outcomes
 
-Potential future improvements include:
+### New Information
 
-Additional specialized verification agents
-More reliable web evidence retrieval
-Source credibility scoring
-Temporal reasoning for time-sensitive claims
-Improved contradiction detection
-Larger verified knowledge base
-Citation-aware evidence generation
-Claim history and tracking
-User authentication
-Investigation dashboards
-Human-in-the-loop verification
-Advanced vector search
-Observability and agent tracing
-Automated evaluation benchmarks
-Better handling of ambiguous claims
+```text
+Verification Status: VERIFIED
+Database Action: INSERTED
+```
+
+The information is considered new and is added to the knowledge base.
+
+### Redundant Information
+
+```text
+Verification Status: REDUNDANT
+Database Action: DISCARDED
+```
+
+The information already exists or is sufficiently similar to existing knowledge.
+
+### Contradictory Information
+
+```text
+Verification Status: CONFLICT
+Database Action: FLAGGED
+```
+
+The information conflicts with existing knowledge and is not automatically accepted.
 
 ---
 
-##🧩 Design Principles
+## 17. API
 
-Sentinels of Truth is designed around the following principles:
+The backend exposes an investigation endpoint used by the frontend.
 
-Modularity
+### Investigation
 
-Each agent or processing stage has a focused responsibility.
+```text
+POST /investigate
+```
 
-Explainability
+The endpoint receives a claim and executes the multi-agent verification workflow.
 
-The system should provide evidence and reasoning rather than only returning a final label.
+Conceptually:
 
-Extensibility
+```text
+POST /investigate
+       |
+       v
+  LangGraph
+       |
+       v
+ Agent Alpha
+       |
+       v
+Verification Report
+       |
+       v
+ Agent Beta
+       |
+       v
+Database Decision
+       |
+       v
+API Response
+```
 
-New agents, search providers, knowledge sources, and verification strategies can be added without redesigning the entire application.
+---
 
-Persistence
+## 18. Separation of Agent Responsibilities
 
-Verified knowledge can be stored and reused through the persistent knowledge base.
+A key design principle of the project is that the agents do not have identical responsibilities.
 
-API-first Architecture
+| Component   | Responsibility                       |
+| ----------- | ------------------------------------ |
+| Frontend    | Accept claim and display result      |
+| FastAPI     | API and application interface        |
+| LangGraph   | Orchestrate agent workflow           |
+| Agent Alpha | Investigation and evidence gathering |
+| Search Tool | Retrieve external information        |
+| Agent Beta  | Knowledge-base validation            |
+| SQLite      | Structured persistent storage        |
+| ChromaDB    | Semantic knowledge search            |
 
-The frontend communicates with the backend through REST APIs, allowing the backend to be independently deployed and tested.
+Agent Alpha produces evidence and a verification report.
+
+Agent Beta is responsible for deciding whether the information should modify the knowledge base.
+
+---
+
+## 19. Assignment Requirement Mapping
+
+| Assignment Requirement           | Implementation                      |
+| -------------------------------- | ----------------------------------- |
+| Web application                  | React frontend                      |
+| User claim input                 | Claim input interface               |
+| Multi-agent system               | Agent Alpha + Agent Beta            |
+| Agent Alpha                      | Investigator                        |
+| Agent Alpha search tool          | External/mock search functionality  |
+| Agent Alpha database restriction | Alpha does not directly write to KB |
+| Agent Beta                       | Archivist                           |
+| Agent Beta database tools        | SQLite + ChromaDB                   |
+| New verified information         | INSERT                              |
+| Contradictory information        | FLAG                                |
+| Redundant information            | DISCARD                             |
+| Persistent storage               | SQLite                              |
+| Semantic similarity              | ChromaDB                            |
+| Agent orchestration              | LangGraph                           |
+| Manual state schema              | `VerificationState`                 |
+| State passed between agents      | LangGraph workflow                  |
+
+---
+
+## 20. Design Principles
+
+### Separation of Concerns
+
+Each component has a specific responsibility.
+
+### Controlled Knowledge Updates
+
+The knowledge base is not automatically updated simply because a claim was received.
+
+### Persistent Memory
+
+Verified information can be retained for future investigations.
+
+### Semantic Comparison
+
+ChromaDB allows the system to compare claims based on semantic similarity rather than relying only on exact text matching.
+
+### Conflict Awareness
+
+Contradictions are not silently overwritten. They are flagged for further review.
+
+### Stateful Agent Workflow
+
+The investigation history is maintained through the shared state object.
+
+---
+
+## 21. Deployment
+
+The application can be deployed using separate frontend and backend services.
+
+Typical deployment architecture:
+
+```text
+                   Internet
+                      |
+                      v
+              +---------------+
+              | Vercel        |
+              | React Frontend|
+              +---------------+
+                      |
+                      | HTTPS API
+                      v
+              +---------------+
+              | Render        |
+              | FastAPI       |
+              +---------------+
+                      |
+                      v
+              SQLite / ChromaDB
+```
+
+---
+
+## 22. Live Demo
+
+**Frontend:**
+https://sentinels-of-truth-one.vercel.app/
+
+**Backend:**
+Add the deployed Render URL here.
+https://sentinels-of-truth-1.onrender.com/
+
+---
+
+## 23. Demo Scenarios
+
+For demonstrating the system, the following scenarios should be tested:
+
+### Scenario 1 — New Claim
+
+Submit a claim that is not already present in the knowledge base.
+
+Expected result:
+
+```text
+INSERT
+```
+
+### Scenario 2 — Repeated Claim
+
+Submit the same or a semantically equivalent claim again.
+
+Expected result:
+
+```text
+DISCARD
+```
+
+### Scenario 3 — Conflicting Claim
+
+Submit a claim that conflicts with existing knowledge.
+
+Expected result:
+
+```text
+FLAG
+```
+
+These scenarios demonstrate the core behavior required by the assignment.
+
+---
+
+## 24. Future Improvements
+
+Possible future improvements include:
+
+* Human review interface for flagged conflicts.
+* Source credibility scoring.
+* More sophisticated contradiction detection.
+* Additional search providers.
+* PostgreSQL for production-scale relational storage.
+* Improved vector retrieval and reranking.
+* Source citation management.
+* Authentication and role-based access.
+* Monitoring and agent-level observability.
+* Automated evaluation datasets.
+
+---
+
+## 25. Conclusion
+
+Sentinels of Truth demonstrates a multi-agent approach to automated claim verification and knowledge management.
+
+The system separates investigation from knowledge-base management:
+
+```text
+Agent Alpha
+    |
+    | Investigates
+    v
+Verification Report
+    |
+    v
+Agent Beta
+    |
+    | Checks existing knowledge
+    v
++---------+---------+
+|         |         |
+v         v         v
+INSERT   DISCARD   FLAG
+```
+
+This architecture allows new verified information to be incorporated into persistent memory while preventing redundant or contradictory information from being silently accepted.
+
+The project therefore provides a practical implementation of a **Multi-Agent Verification & Knowledge-Base System** using LangGraph, FastAPI, SQLite, ChromaDB, and a web-based user interface.
