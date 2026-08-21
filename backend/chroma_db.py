@@ -6,6 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 CHROMA_PATH = DATA_DIR / "chroma"
 
+
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 CHROMA_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -13,6 +14,7 @@ CHROMA_PATH.mkdir(parents=True, exist_ok=True)
 client = chromadb.PersistentClient(
     path=str(CHROMA_PATH)
 )
+
 
 collection = client.get_or_create_collection(
     name="claims"
@@ -50,9 +52,7 @@ DEFAULT_CLAIMS = [
 ]
 
 
-def initialize_collection():
-    """Insert default claims if they are not already stored."""
-
+def initialize_knowledge_base():
     existing = collection.get(
         ids=[claim["id"] for claim in DEFAULT_CLAIMS]
     )
@@ -80,8 +80,6 @@ def add_claim(
     text: str,
     metadata: dict | None = None,
 ):
-    """Add a claim to ChromaDB."""
-
     existing = collection.get(
         ids=[claim_id]
     )
@@ -97,15 +95,11 @@ def add_claim(
 
 
 def get_collection_count():
-    """Return the number of stored documents."""
-
     return collection.count()
 
 
-initialize_collection()
-
-
 if __name__ == "__main__":
+    initialize_knowledge_base()
 
     print("ChromaDB initialized successfully.")
     print(
