@@ -3,11 +3,26 @@ from backend.chroma_db import collection
 
 def search_claims(
     query: str,
-    n_results: int = 5
+    n_results: int = 5,
 ):
+    """Search ChromaDB for claims related to the query."""
+
+    if not query or not query.strip():
+        return []
+
+    count = collection.count()
+
+    if count == 0:
+        return []
+
+    n_results = min(
+        n_results,
+        count
+    )
+
     results = collection.query(
-        query_texts=[query],
-        n_results=n_results
+        query_texts=[query.strip()],
+        n_results=n_results,
     )
 
     ids = results.get("ids", [[]])[0]
@@ -17,21 +32,29 @@ def search_claims(
 
     formatted_results = []
 
-    for i in range(len(ids)):
+    for i, claim_id in enumerate(ids):
+
         formatted_results.append(
             {
-                "id": ids[i],
-                "text": documents[i] if i < len(documents) else "",
+                "id": claim_id,
+
+                "text": (
+                    documents[i]
+                    if i < len(documents)
+                    else ""
+                ),
+
                 "metadata": (
                     metadatas[i]
                     if i < len(metadatas)
                     else {}
                 ),
+
                 "distance": (
                     distances[i]
                     if i < len(distances)
                     else None
-                )
+                ),
             }
         )
 

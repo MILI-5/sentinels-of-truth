@@ -3,7 +3,12 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CHROMA_PATH = BASE_DIR / "data" / "chroma"
+DATA_DIR = BASE_DIR / "data"
+CHROMA_PATH = DATA_DIR / "chroma"
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+CHROMA_PATH.mkdir(parents=True, exist_ok=True)
+
 
 client = chromadb.PersistentClient(
     path=str(CHROMA_PATH)
@@ -16,78 +21,94 @@ collection = client.get_or_create_collection(
 
 DEFAULT_CLAIMS = [
     {
-        "id": "knowledge_earth_sun",
+        "id": "knowledge_001",
         "text": "The Earth revolves around the Sun.",
         "metadata": {
-            "source": "Sentinels Knowledge Base",
-            "type": "verified_fact"
-        }
+            "source": "Sentinels of Truth knowledge base",
+            "type": "verified_claim",
+            "verification_status": "verified",
+        },
     },
     {
-        "id": "knowledge_sun_star",
-        "text": "The Sun is a star.",
-        "metadata": {
-            "source": "Sentinels Knowledge Base",
-            "type": "verified_fact"
-        }
-    },
-    {
-        "id": "knowledge_moon_earth",
-        "text": "The Moon revolves around the Earth.",
-        "metadata": {
-            "source": "Sentinels Knowledge Base",
-            "type": "verified_fact"
-        }
-    },
-    {
-        "id": "knowledge_water_freezing",
+        "id": "knowledge_002",
         "text": "Water freezes at 0 degrees Celsius under standard atmospheric pressure.",
         "metadata": {
-            "source": "Sentinels Knowledge Base",
-            "type": "verified_fact"
-        }
+            "source": "Sentinels of Truth knowledge base",
+            "type": "verified_claim",
+            "verification_status": "verified",
+        },
     },
     {
-        "id": "knowledge_pacific_ocean",
+        "id": "knowledge_003",
         "text": "The Pacific Ocean is the largest ocean on Earth.",
         "metadata": {
-            "source": "Sentinels Knowledge Base",
-            "type": "verified_fact"
-        }
-    }
+            "source": "Sentinels of Truth knowledge base",
+            "type": "verified_claim",
+            "verification_status": "verified",
+        },
+    },
 ]
 
 
-def initialize_knowledge_base():
-    for claim in DEFAULT_CLAIMS:
-        collection.upsert(
-            ids=[claim["id"]],
-            documents=[claim["text"]],
-            metadatas=[claim["metadata"]]
-        )
+def initialize_collection():
+    """Insert default claims if they are not already stored."""
+
+    existing = collection.get(
+        ids=[claim["id"] for claim in DEFAULT_CLAIMS]
+    )
+
+    existing_ids = set(existing.get("ids", []))
+
+    new_claims = [
+        claim
+        for claim in DEFAULT_CLAIMS
+        if claim["id"] not in existing_ids
+    ]
+
+    if not new_claims:
+        return
+
+    collection.add(
+        ids=[claim["id"] for claim in new_claims],
+        documents=[claim["text"] for claim in new_claims],
+        metadatas=[claim["metadata"] for claim in new_claims],
+    )
 
 
 def add_claim(
     claim_id: str,
     text: str,
-    metadata: dict | None = None
+    metadata: dict | None = None,
 ):
-    collection.upsert(
+    """Add a claim to ChromaDB."""
+
+    existing = collection.get(
+        ids=[claim_id]
+    )
+
+    if existing.get("ids"):
+        return
+
+    collection.add(
         ids=[claim_id],
         documents=[text],
-        metadatas=[metadata or {}]
+        metadatas=[metadata or {}],
     )
 
 
 def get_collection_count():
+    """Return the number of stored documents."""
+
     return collection.count()
 
 
-initialize_knowledge_base()
+initialize_collection()
 
 
 if __name__ == "__main__":
-    initialize_knowledge_base()
 
     print("ChromaDB initialized successfully.")
-    print("Documents stored:", get_collection_count())
+    print(
+        "Documents stored:",
+        get_collection_count()
+    )

@@ -14,14 +14,14 @@ from backend.action import (
 )
 
 
+DISTANCE_THRESHOLD = 1.0
+
+
 def calculate_confidence(
     evidence: list[dict],
-    distance_threshold: float
+    distance_threshold: float,
 ) -> float:
-    """
-    Convert the best ChromaDB distance into
-    a simple confidence score between 0 and 1.
-    """
+    """Convert ChromaDB distance into a confidence score."""
 
     if not evidence:
         return 0.0
@@ -38,35 +38,49 @@ def calculate_confidence(
 
     confidence = (
         1.0
-        - (best_distance / distance_threshold)
+        - (
+            best_distance
+            / distance_threshold
+        )
     )
 
     return round(
-        max(0.0, min(1.0, confidence)),
-        2
+        max(
+            0.0,
+            min(1.0, confidence)
+        ),
+        2,
     )
 
 
 def alpha_node(
-    state: InvestigationState
+    state: InvestigationState,
 ):
-    """
-    Run Agent Alpha.
-    """
+    """Run Agent Alpha."""
 
     print("\n[Alpha Node] Running...")
 
     claim = state["original_claim"]
 
     alpha_result = investigate_claim(
-        claim
+        claim=claim,
+        n_results=5,
+        distance_threshold=DISTANCE_THRESHOLD,
     )
-
-    distance_threshold = 1.0
 
     confidence = calculate_confidence(
         alpha_result["evidence"],
-        distance_threshold
+        DISTANCE_THRESHOLD,
+    )
+
+    print(
+        "[Alpha Node] Status:",
+        alpha_result["status"],
+    )
+
+    print(
+        "[Alpha Node] Evidence:",
+        alpha_result["evidence_count"],
     )
 
     return {
@@ -84,9 +98,11 @@ def alpha_node(
 
         "verification_report": {
             "status": alpha_result["status"],
+
             "evidence_count": (
                 alpha_result["evidence_count"]
             ),
+
             "best_evidence": (
                 alpha_result["best_evidence"]
             ),
@@ -104,11 +120,9 @@ def alpha_node(
 
 
 def beta_node(
-    state: InvestigationState
+    state: InvestigationState,
 ):
-    """
-    Run Agent Beta.
-    """
+    """Run Agent Beta."""
 
     print("\n[Beta Node] Running...")
 
@@ -116,6 +130,11 @@ def beta_node(
 
     beta_result = investigate_knowledge_base(
         claim
+    )
+
+    print(
+        "[Beta Node] Status:",
+        beta_result["comparison_status"],
     )
 
     return {
@@ -144,28 +163,30 @@ def beta_node(
 
 
 def decision_node(
-    state: InvestigationState
+    state: InvestigationState,
 ):
-    """
-    Generate and execute the final decision.
-    """
+    """Generate and execute the final decision."""
 
     print("\n[Decision Node] Running...")
 
-    alpha_status = state[
-        "verification_report"
-    ].get(
-        "status",
-        "NO_EVIDENCE"
+    alpha_status = (
+        state[
+            "verification_report"
+        ].get(
+            "status",
+            "NO_EVIDENCE",
+        )
     )
 
-    beta_status = state[
-        "investigation_history"
-    ][-1]["status"]
+    beta_status = (
+        state[
+            "investigation_history"
+        ][-1]["status"]
+    )
 
     decision_result = decide_action(
-        alpha_status,
-        beta_status
+        alpha_status=alpha_status,
+        beta_status=beta_status,
     )
 
     decision = decision_result[
@@ -178,7 +199,7 @@ def decision_node(
 
     print(
         "[Decision Node] Decision:",
-        decision
+        decision,
     )
 
     if decision == "INSERT":
@@ -209,12 +230,12 @@ def decision_node(
 
     print(
         "[Decision Node] Action:",
-        action_result["action"]
+        action_result["action"],
     )
 
     print(
         "[Decision Node] Action Status:",
-        action_result["status"]
+        action_result["status"],
     )
 
     return {
@@ -235,17 +256,17 @@ def decision_node(
 
 
 def route_after_alpha(
-    state: InvestigationState
+    state: InvestigationState,
 ):
-    """
-    Route Alpha to Beta.
-    """
+    """Route Alpha to Beta."""
 
-    status = state[
-        "verification_report"
-    ].get(
-        "status",
-        "NO_EVIDENCE"
+    status = (
+        state[
+            "verification_report"
+        ].get(
+            "status",
+            "NO_EVIDENCE",
+        )
     )
 
     print(
@@ -266,41 +287,41 @@ builder = StateGraph(
 
 builder.add_node(
     "alpha",
-    alpha_node
+    alpha_node,
 )
 
 builder.add_node(
     "beta",
-    beta_node
+    beta_node,
 )
 
 builder.add_node(
     "decision",
-    decision_node
+    decision_node,
 )
 
 
 builder.add_edge(
     START,
-    "alpha"
+    "alpha",
 )
 
 builder.add_conditional_edges(
     "alpha",
     route_after_alpha,
     {
-        "beta": "beta"
-    }
+        "beta": "beta",
+    },
 )
 
 builder.add_edge(
     "beta",
-    "decision"
+    "decision",
 )
 
 builder.add_edge(
     "decision",
-    END
+    END,
 )
 
 
@@ -319,7 +340,7 @@ if __name__ == "__main__":
             "test_claim_001",
 
         "original_claim":
-            "The sun is a star",
+            "The Earth revolves around the Sun.",
 
         "parsed_claim": {},
 

@@ -5,10 +5,7 @@ def decide_action(
     alpha_status: str,
     beta_status: str,
 ) -> dict[str, Any]:
-    """
-    Decide whether a claim should be INSERTED,
-    FLAGGED, or DISCARDED.
-    """
+    """Determine the final claim decision."""
 
     if (
         alpha_status == "EVIDENCE_FOUND"
@@ -18,9 +15,9 @@ def decide_action(
             "decision": "INSERT",
             "reason": (
                 "Supporting evidence was found and "
-                "the claim does not already exist "
+                "the claim is not already present "
                 "in the knowledge base."
-            )
+            ),
         }
 
     if (
@@ -32,16 +29,16 @@ def decide_action(
             "reason": (
                 "The claim is already verified "
                 "in the knowledge base."
-            )
+            ),
         }
 
     if beta_status == "CONTRADICTION":
         return {
             "decision": "FLAG",
             "reason": (
-                "The claim conflicts with a rejected "
-                "claim in the knowledge base."
-            )
+                "The claim conflicts with a "
+                "rejected claim in the knowledge base."
+            ),
         }
 
     if (
@@ -53,7 +50,16 @@ def decide_action(
             "reason": (
                 "No supporting evidence or existing "
                 "knowledge was found."
-            )
+            ),
+        }
+
+    if alpha_status == "EVIDENCE_FOUND":
+        return {
+            "decision": "INSERT",
+            "reason": (
+                "Supporting evidence was found "
+                "for the claim."
+            ),
         }
 
     return {
@@ -61,5 +67,5 @@ def decide_action(
         "reason": (
             "The available information is insufficient "
             "to make a reliable decision."
-        )
+        ),
     }
