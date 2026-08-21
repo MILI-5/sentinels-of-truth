@@ -1,17 +1,26 @@
-from fastapi import FastAPI
+import uuid
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.database import initialize_database
 from backend.graph import investigation_graph
 from backend.models import InvestigationRequest, InvestigationResponse
 
-import uuid
 
+# ============================================================
+# APPLICATION
+# ============================================================
 
 app = FastAPI(
     title="Sentinels of Truth",
     description="Multi-Agent Claim Verification System",
     version="1.0.0",
 )
+
+
+# Initialize SQLite database when the API starts
+initialize_database()
 
 
 # ============================================================
@@ -63,44 +72,49 @@ def health():
 )
 def investigate(request: InvestigationRequest):
 
+    # Validate claim
+    if not request.claim or not request.claim.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Claim cannot be empty."
+        )
+
     initial_state = {
         "claim_id": f"api_{uuid.uuid4().hex[:12]}",
-
-        "original_claim": request.claim,
+        "original_claim": request.claim.strip(),
 
         "parsed_claim": {},
-
         "missing_information": [],
-
         "search_queries_used": [],
-
         "search_results": [],
-
         "evidence": [],
-
         "verification_report": {},
 
         "confidence": 0.0,
 
         "database_matches": [],
-
         "contradiction_info": {},
 
         "final_decision": None,
-
         "decision_reasoning": None,
 
         "investigation_history": [],
-
         "timestamps": {},
 
         "errors": [],
     }
 
-    # Run LangGraph
-    result = investigation_graph.invoke(initial_state)
+    try:
+        # Run the LangGraph investigation workflow
+        result = investigation_graph.invoke(initial_state)
 
-    # Return complete investigation result
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Investigation failed: {str(exc)}"
+        ) from exc
+
+    # Return the investigation result
     return {
         "claim_id": result.get("claim_id"),
 
@@ -114,7 +128,10 @@ def investigate(request: InvestigationRequest):
 
         "evidence": result.get("evidence", []),
 
-        "search_results": result.get("search_results", []),
+        "search_results": result.get(
+            "search_results",
+            []
+        ),
 
         "search_queries": result.get(
             "search_queries_used",
