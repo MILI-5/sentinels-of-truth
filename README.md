@@ -48,8 +48,9 @@ Final Decision
  ├── Reasoning
  ├── Evidence
  └── Investigation Details
+ ---
 
- 📁 Project Structure
+ ## 📁 Project Structure
 sentinels-of-truth/
 │
 ├── backend/
@@ -77,7 +78,8 @@ sentinels-of-truth/
 ├── requirements.txt
 └── README.md
 
-🧠 Technology Stack
+---
+ ##🧠 Technology Stack
 
 Frontend
 React
@@ -103,7 +105,9 @@ Deployment
 Vercel
 Render
 
-🔌 API
+---
+
+##🔌 API
 Health Check
 GET /
 
@@ -126,7 +130,9 @@ Request:
 
 The response contains the verification decision, confidence, reasoning, evidence, search results, knowledge-base matches, and investigation information.
 
-🗄️ Knowledge Base
+---
+
+##🗄️ Knowledge Base
 
 The project uses ChromaDB as a persistent knowledge base.
 
@@ -138,7 +144,9 @@ The Pacific Ocean is the largest ocean on Earth.
 
 Additional claims can be added programmatically through the backend.
 
-⚙️ Local Setup
+---
+
+## ⚙️ Local Setup
 
 1. Clone the repository
 git clone https://github.com/MILI-5/sentinels-of-truth.git
@@ -180,7 +188,9 @@ Frontend:
 
 http://localhost:5173
 
-🌐 Deployment
+---
+
+## 🌐 Deployment
 
 The application can be deployed as separate frontend and backend services.
 
@@ -210,11 +220,16 @@ along with supporting reasoning and evidence.
 
 The goal of Sentinels of Truth is to demonstrate how multi-agent AI, evidence retrieval, structured reasoning, and persistent knowledge bases can be combined to build an explainable claim verification system.
 
-📜 License
+---
+
+
+##📜 License
 
 This project was developed as an academic/research project.
 
-🔮 Future Improvements
+---
+
+##🔮 Future Improvements
 
 Potential future improvements include:
 
@@ -234,7 +249,9 @@ Observability and agent tracing
 Automated evaluation benchmarks
 Better handling of ambiguous claims
 
-🧩 Design Principles
+---
+
+##🧩 Design Principles
 
 Sentinels of Truth is designed around the following principles:
 
